@@ -1,0 +1,9 @@
+# 运行产物与隐私数据，不入库
+shots/
+edge_profile/
+*.json
+*.xlsx
+*.log
+__pycache__/
+*.pyc
+.DS_Store
