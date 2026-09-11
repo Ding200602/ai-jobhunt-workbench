@@ -3,11 +3,12 @@
 零散渠道采集器（scatter_channels）
 
 定位：jobbot 工作台「搜岗」的可插拔零散源模块，专门收集"非集中招聘平台"的分散信息：
-  1) sdgxbys_campus  山东毕业生就业服务平台 · 高校校招公告（各校就业网发布，聚合于省级平台）
-  2) sdgxbys_job     山东毕业生就业服务平台 · 单位自主发布的零散岗位（id 空间遍历）
-  3) sdgxbys_fair    山东毕业生就业服务平台 · 校园招聘会/双选会排期
-  4) campus2026      社区维护的校招入口汇总文件（GitHub markdown 表格，含内推/推文链接）
+  1) province_campus  省级毕业生就业服务平台 · 高校校招公告（各校就业网发布，聚合于省级平台）
+  2) province_job     省级毕业生就业服务平台 · 单位自主发布的零散岗位（id 空间遍历）
+  3) province_fair    省级毕业生就业服务平台 · 校园招聘会/双选会排期
+  4) campus2026       社区维护的校招入口汇总文件（GitHub markdown 表格，含内推/推文链接）
 
+省级平台 BASE_URL 按你所在省份替换即可（同类平台结构高度相似，改 URL + 正则即可复用）。
 输出：统一 schema 的 records（source/kind/job_name/company/city/salary/meta/date/link/raw）
 """
 import re
@@ -45,8 +46,8 @@ def _flat(html):
     return re.sub(r'\s+', ' ', t)
 
 
-# ---------- 1) 山东平台 · 校招公告列表（分页公开） ----------
-SDB_BASE = 'https://job.sdgxbys.cn'
+# ---------- 1) 省级平台 · 校招公告列表（分页公开，BASE_URL 替换为对应省份） ----------
+PROV_BASE = 'https://job.example-prov.cn'
 
 CAMPUS_ITEM = re.compile(
     r'<ul>\s*<li[^>]*><a href="(/campus/view/id/\d+)"[^>]*>(.*?)</a></li>\s*'
@@ -57,11 +58,11 @@ FAIR_ITEM = re.compile(
     r'<li[^>]*><span>(.*?)</span></li>\s*<li[^>]*><span>(\d{4}-\d{2}-\d{2})</span></li>', re.S)
 
 
-def fetch_sdgxbys_campus(pages=20, delay=0.25):
+def fetch_prov_campus(pages=20, delay=0.25):
     """抓 /campus 公告列表最近 N 页（每页 20 条）。"""
     out, seen = [], set()
     for p in range(1, pages + 1):
-        url = f'{SDB_BASE}/campus' + (f'?page={p}' if p > 1 else '')
+        url = f'{PROV_BASE}/campus' + (f'?page={p}' if p > 1 else '')
         try:
             html = _get(url)
         except Exception:
@@ -71,18 +72,18 @@ def fetch_sdgxbys_campus(pages=20, delay=0.25):
             t = re.sub(r'\s+', ' ', t).strip()
             if not t or len(t) < 4:
                 continue
-            full = urllib.parse.urljoin(SDB_BASE, href)
+            full = urllib.parse.urljoin(PROV_BASE, href)
             if full in seen:
                 continue
             seen.add(full)
-            out.append(_rec(source='sdgxbys_campus', kind='campus_notice', job_name=t,
+            out.append(_rec(source='province_campus', kind='campus_notice', job_name=t,
                             company=school.strip() or t, city=city.strip(), date=date.strip(),
                             link=full, raw=f'{t} | {school.strip()} | {date.strip()}'))
         time.sleep(delay)
     return out
 
 
-# ---------- 2) 山东平台 · 零散岗位（id 空间遍历） ----------
+# ---------- 2) 省级平台 · 零散岗位（id 空间遍历） ----------
 _JOB_FIELDS = {
     'job_name': r'详情\s*(.+?)\s*分享至',
     'company': r'分享至：?\s*(.+?)\s*单位性质',
@@ -106,12 +107,12 @@ def _parse_job(html):
     return d if d['job_name'] else None
 
 
-def fetch_sdgxbys_jobs(id_start, id_end, workers=6, delay=0.1):
+def fetch_prov_jobs(id_start, id_end, workers=6, delay=0.1):
     """遍历 job id 空间（自增稀疏，命中率约 6-7%）。"""
     out, lock = [], None
 
     def _one(i):
-        url = f'{SDB_BASE}/job/view/id/{i}'
+        url = f'{PROV_BASE}/job/view/id/{i}'
         try:
             html = _get(url, timeout=15)
         except Exception:
@@ -119,7 +120,7 @@ def fetch_sdgxbys_jobs(id_start, id_end, workers=6, delay=0.1):
         d = _parse_job(html)
         if not d:
             return None
-        d.update(source='sdgxbys_job', kind='job', link=url, raw=d.get('job_name', ''))
+        d.update(source='province_job', kind='job', link=url, raw=d.get('job_name', ''))
         return _rec(**d)
 
     with ThreadPoolExecutor(max_workers=workers) as ex:
@@ -132,11 +133,11 @@ def fetch_sdgxbys_jobs(id_start, id_end, workers=6, delay=0.1):
     return out
 
 
-# ---------- 3) 山东平台 · 招聘会/双选会 ----------
-def fetch_sdgxbys_fair(pages=5, delay=0.25):
+# ---------- 3) 省级平台 · 招聘会/双选会 ----------
+def fetch_prov_fair(pages=5, delay=0.25):
     out, seen = [], set()
     for p in range(1, pages + 1):
-        url = f'{SDB_BASE}/jobfair' + (f'?page={p}' if p > 1 else '')
+        url = f'{PROV_BASE}/jobfair' + (f'?page={p}' if p > 1 else '')
         try:
             html = _get(url)
         except Exception:
@@ -147,8 +148,8 @@ def fetch_sdgxbys_fair(pages=5, delay=0.25):
             if key in seen or not name:
                 continue
             seen.add(key)
-            out.append(_rec(source='sdgxbys_fair', kind='fair', job_name=name,
-                            company=school, date=date, link=urllib.parse.urljoin(SDB_BASE, href),
+            out.append(_rec(source='province_fair', kind='fair', job_name=name,
+                            company=school, date=date, link=urllib.parse.urljoin(PROV_BASE, href),
                             raw=f'{name} | {school} | {date}'))
         time.sleep(delay)
     return out
@@ -188,9 +189,9 @@ def fetch_campus2026(url=CAMPUS2026):
 
 def collect_all(campus_pages=20, job_id_start=1335000, job_id_end=1334300, out_json=None):
     data = []
-    data += fetch_sdgxbys_campus(pages=campus_pages)
-    data += fetch_sdgxbys_jobs(job_id_start, job_id_end)
-    data += fetch_sdgxbys_fair()
+    data += fetch_prov_campus(pages=campus_pages)
+    data += fetch_prov_jobs(job_id_start, job_id_end)
+    data += fetch_prov_fair()
     data += fetch_campus2026()
     if out_json:
         with open(out_json, 'w', encoding='utf-8') as f:

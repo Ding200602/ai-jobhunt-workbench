@@ -39,11 +39,12 @@ def norm(rec):
 # ---------- 渠道注册表 ----------
 # loc: 列表条目 css；fields 见 bot._collect 的规范（@attr 表示取属性）
 # page_param: 翻页 URL 参数名（第 2 页起拼接），多页翻页用 URL 而非点击，更稳
+# cities: 城市名 -> 各平台城市代码（按需自行添加目标城市，代码见各平台城市表；全国代码已给出）
 CHANNELS = {
     'boss': {
         'name': 'BOSS直聘',
         'url': 'https://www.zhipin.com/web/geek/job?query={kw}&city={city}',
-        'cities': {'北京': '100010000', '长春': '101060100', '济南': '101120100', '全国': '100010000'},
+        'cities': {'全国': '100010000'},
         'loc': '.job-card-wrapper',
         'fields': {'job_name': '.job-name', 'company': '.company-name', 'salary': '.salary',
                    'meta': '.job-info', 'link': '.job-card-left@href'},
@@ -54,7 +55,7 @@ CHANNELS = {
     'zhaopin': {
         'name': '智联招聘',
         'url': 'https://sou.zhaopin.com/?kw={kw}&jl={city}&kt=3',
-        'cities': {'北京': '530', '长春': '732', '济南': '679', '全国': ''},
+        'cities': {'全国': ''},
         'loc': '.joblist-box__item',
         'fields': {'job_name': '.joblist-box__iteminfo--name', 'company': '.company_name',
                    'salary': '.salary', 'meta': '.joblist-box__iteminfo--desc',
@@ -66,7 +67,7 @@ CHANNELS = {
     '51job': {
         'name': '前程无忧',
         'url': 'https://we.51job.com/pc/search?jobArea={city}&keyword={kw}&searchType=2',
-        'cities': {'北京': '010000', '长春': '070200', '济南': '070300', '全国': '000000'},
+        'cities': {'全国': '000000'},
         'loc': '.joblist-boxe .e',
         'fields': {'job_name': '.jname', 'company': '.cname', 'salary': '.sal',
                    'meta': '.info', 'link': 'a@href'},
@@ -77,7 +78,7 @@ CHANNELS = {
     'shixiseng': {
         'name': '实习僧',
         'url': 'https://www.shixiseng.com/interns?keyword={kw}&city={city}',
-        'cities': {'北京': '全国', '长春': '全国', '济南': '全国', '全国': '全国'},
+        'cities': {'全国': '全国'},
         'loc': '.intern-item',
         'fields': {'job_name': '.title', 'company': '.company', 'salary': '.money',
                    'meta': '.tags', 'link': 'a@href'},
@@ -98,11 +99,11 @@ CHANNELS = {
     },
 }
 
-# 目标城市
-CITY_ALIAS = {'北京': '北京', '长春': '长春', '济南': '济南'}
+# 目标城市（按需配置，如 {'城市A': '城市A', '城市B': '城市B'}）
+CITY_ALIAS = {}
 
 
-def build_url(channel_id, kw, city='北京', page=1):
+def build_url(channel_id, kw, city='全国', page=1):
     ch = CHANNELS[channel_id]
     code = ch['cities'].get(city, '')
     url = ch['url'].format(kw=urllib.parse.quote(kw), city=code)

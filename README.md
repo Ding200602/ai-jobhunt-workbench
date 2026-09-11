@@ -43,7 +43,7 @@
 
 ```json
 {
-  "source": "zhaopin | sdgxbys_campus | campus2026 | ...",
+  "source": "zhaopin | province_campus | campus2026 | ...",
   "kind":   "job（具体岗位） | entry（校招入口/公司级）",
   "job_name": "", "company": "", "city": "",
   "salary": "", "meta": "学历/经验标签",
